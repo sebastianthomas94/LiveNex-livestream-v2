@@ -14,7 +14,7 @@ import {
   customRtmpSettings,
 } from "../services/ffmpeg.js";
 import { getLiveComments } from "../helpers/facebookHelper.js";
-import {} from "../helpers/twitchHelper.js";
+import { } from "../helpers/twitchHelper.js";
 import { getYoutubeComments } from "../helpers/youtubeHelper.js";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3"; // Import S3Client and GetObjectCommand
 import fs from "fs";
@@ -112,14 +112,32 @@ io.on("connection", async (socket) => {
         const videoS3Bucket = process.env.BUCKET;
         const videoS3Key = fileName;
         const s3VideoUrl = `s3://${videoS3Bucket}/${videoS3Key}`;
+        if (process.env.NODE_ENV == "development") {
+          console.log("downloading the video for dev mode");
+          await downloadFromS3(
+            videoS3Key,
+            fs,
+            s3Client,
+            GetObjectCommand,
+            localFilePath,
+          );
+        }
+        else {
+          console.log("patching the s3 video for prod mode");
 
-        await downloadFromS3(
-          videoS3Key,
-          fs,
-          s3Client,
-          GetObjectCommand,
-          localFilePath,
-        );
+          facebookCommand = [].concat(
+            ["-re", "-i", s3VideoUrl],
+            facebook_rtmp && facebookSettings(facebook_rtmp)
+          );
+          twitchCommand = [].concat(
+            ["-re", "-i", s3VideoUrl],
+            twitch_rtmp && customRtmpSettings(twitch_rtmp)
+          );
+          youtubeCommand = [].concat(
+            ["-re", "-i", s3VideoUrl],
+            youtube_rtmp && youtubeSettings(youtube_rtmp)
+          );
+        }
         const startStreaming = (command) => {
           ffmpeg = spawn("ffmpeg", command);
         };
@@ -236,7 +254,7 @@ io.on("connection", async (socket) => {
       GetObjectCommand,
       facebook_liveVideoId,
       facebook_accesstoken,
-      
+
     });
   });
 });
